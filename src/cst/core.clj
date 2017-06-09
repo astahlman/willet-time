@@ -8,6 +8,7 @@
 ;; Links:
 ;; 1. http://www.physics.rutgers.edu/~twatts/sunrise/node6.html
 ;; 2. http://aa.usno.navy.mil/cgi-bin/aa_rstablew.pl?ID=AA&year=2017&task=0&state=WA&place=seattle
+;; 3. http://totaleclipse.eu/Astronomy/EOT.html
 
 (defn -main
   "I don't do a whole lot ... yet."
@@ -34,12 +35,6 @@
                          "2017-12-01" {:sunrise "2017-12-01T07:37:00-08:00"
                                        :sunset "2017-12-01T16:20:00-08:00"}}}})
 
-
-;; (defn- daylight-interval
-;;   "Returns a 2-item sequence with items sunrise and sunset, both of type
-;;   jdt"
-;;   [{:keys [lat lon]} doy-str]
-;;   [nil nil])
 
 (defn- close-enough?
   "Is delta between two Julian dates within 1 minute?"
@@ -106,10 +101,11 @@
                               (iso->jdt "2017-08-08T00:01:01Z")))))
 
 (defn- radian->hr [r]
-  (* r (/ 24 (* Math/PI 2))))
+  (* 24
+     (/ r (* Math/PI 2))))
 
 (defn- psi
-  "Time of sun's highest elevation"
+  "Angle of sun's highest elevation"
   [days-since-winter-solstice]
   (let [d (/ days-since-winter-solstice 365.25)
         Pi2d (* Math/PI 2 d)
@@ -122,10 +118,11 @@
                         (Math/cos Pi2d))
                      (* (Math/sin Pi2d)
                         (Math/sin Pi2d)))]
-    (/ numerator denominator)))
+    (Math/atan (/ numerator denominator))))
 
 (defn- sunrise-to-noon-angle-precise
-  "Return the angle (in radians) of ___?"
+  "Return the difference (in radians) between of the azimuth of P and
+  at sunrise and the Sun's angle of highest elevation at solar noon."
   [latitude days-since-winter-solstice]
   (let [lambda (Math/toRadians latitude)
         d (/ days-since-winter-solstice 365.25)
@@ -150,10 +147,10 @@
   "Return the number of hours from sunrise to noon at the given
   latitude and days since the winter solstice"
   [latitude days-since-winter-solstice]
-  (let [lambda (Math/toRadians latitude)
-        d (/ days-since-winter-solstice 365.25)
-        sunrise-to-noon-angle (sunrise-to-noon-angle-precise latitude days-since-winter-solstice)]
-    (radian->hr sunrise-to-noon-angle)))
+  (radian->hr
+   (sunrise-to-noon-angle-precise
+    latitude
+    days-since-winter-solstice)))
 
 (defn- fmt-hours [n]
   (let [minutes (* 60.0 (- n (Math/floor n)))]
@@ -163,12 +160,25 @@
 (assert (= "01:15" (fmt-hours 1.25)))
 (assert (= "07:30" (fmt-hours 7.50)))
 
+(defn- eqn-of-time-eccentricity
+  "Drift from solar noon due to the eccentricity of the Earth's
+  orbit. We've been assuming Earth's orbit is circular, so we bolt
+  this on at the end to make our calculation a little more
+  accurate. Amplitude taken from http://totaleclipse.eu/Astronomy/EOT.html"
+  [days-since-winter-solstice]
+  (let [d (/ days-since-winter-solstice 365.25)
+        Pi2d (* Math/PI 2 d)
+        amplitude-minutes 7.66]
+    (* (/ amplitude-minutes 60) (Math/sin Pi2d))))
+
 (defn- solar-noon-drift
   "Return the difference in hours between solar noon and mean solar
   noon on day [0 - 365.25), where 0 corresponds to the winter
   solstice"
   [days-since-winter-solstice]
-  (radian->hr (Math/atan (psi days-since-winter-solstice))))
+  (let [eccentricity-component (eqn-of-time-eccentricity days-since-winter-solstice)
+        ecliptic-component (radian->hr (psi days-since-winter-solstice))]
+    (+ eccentricity-component ecliptic-component)))
 
 (defn sunrise
   "Return the hour of sunrise at the given latitude (in degrees) on
@@ -176,18 +186,6 @@
   [latitude days-since-winter-solstice]
   (- (+ 12.0 (solar-noon-drift days-since-winter-solstice))
      (length-of-morning latitude days-since-winter-solstice)))
-
-;; (incanter.core/view (-> (incanter.charts/function-plot (partial sunrise seattle-latitude) 0 364)
-;;                         (incanter.charts/set-title "Sunrise")
-;;                         (incanter.charts/set-x-label "Day of year")
-;;                         (incanter.charts/set-y-label "Hour")))
-
-(comment (defn run-test []
-           (for [[name {:keys [coords test-data]}] cities]
-             (for [[date {:keys [sunrise sunset]}] test-data]
-               (assert (and
-                        (close-enough? (iso->jdt sunrise) (:sunrise (daylight-interval coords date)))
-                        (close-enough? (iso->jdt sunset) (:sunset (daylight-interval coords date)))))))))
 
 (defn- load-seattle-dataset []
   (letfn [(parse-str-as-hr [s]
@@ -206,25 +204,20 @@
   (first (nth (load-seattle-dataset) n)))
 
 (defn- days-since-winter-solstice
-  "For some reason there's a systematic bias that disappears if you
-  shift the curve by 2 days. Until I figure out what's going on, I'm
-  using a cheap hack by pretending the solstice is on Dec. 23 instead
-  Dec. 21"
-  ([doy] (days-since-winter-solstice doy true))
-  ([doy use-bias?]
-   (let [maybe-biased-solstice (if use-bias?
-                                 (+ 2 winter-solstice-doy)
-                                 winter-solstice-doy)]
-     (if (< doy maybe-biased-solstice)
-       (+ (- 365 maybe-biased-solstice) doy)
-       (- doy maybe-biased-solstice)))))
+  "The number of days since December 21st (the date of the December
+  solstice in 2016) for the given day of the calendar year, where 0
+  corresponds to January 1st and 364 corresponds to December
+  31st (we're ignoring leap years)."
+  [doy]
+  (if (< doy winter-solstice-doy)
+    (+ (- 365 winter-solstice-doy) doy)
+    (- doy winter-solstice-doy)))
 
-(assert (= 11 (days-since-winter-solstice 0 false)))
-(assert (= 9 (days-since-winter-solstice 0 true)))
-(assert (= 364 (days-since-winter-solstice 353 false)))
-(assert (zero? (days-since-winter-solstice winter-solstice-doy false)))
-(assert (= 1 (days-since-winter-solstice 355 false)))
-(assert (= 10 (days-since-winter-solstice 364 false)))
+(assert (= 11 (days-since-winter-solstice 0))) ;; January 1st is 11 days after the solstice
+(assert (= 364 (days-since-winter-solstice (dec winter-solstice-doy))))
+(assert (zero? (days-since-winter-solstice winter-solstice-doy)))
+(assert (= 1 (days-since-winter-solstice (inc winter-solstice-doy))))
+(assert (= 10 (days-since-winter-solstice 364)))
 
 (defn error-minutes
   "Error between predicted and actual sunrise in minutes"
@@ -236,15 +229,16 @@
     (* 60 delta)))
 
 (defn- plot-components []
-  (incanter.core/view (-> (incanter.charts/function-plot (partial length-of-morning seattle-latitude) 0 365)
+  (incanter.core/view (-> (incanter.charts/function-plot (partial length-of-morning seattle-latitude) 0 364)
                           (incanter.charts/set-title "Length of morning")
                           (incanter.charts/set-x-label "Day of year")
                           (incanter.charts/set-y-label "Hours")))
 
-  (incanter.core/view (-> (incanter.charts/function-plot #(* 60 (solar-noon-drift %)) 0 365)
+  (incanter.core/view (-> (incanter.charts/function-plot #(* 60 (solar-noon-drift %)) 0 364)
                           (incanter.charts/set-title "Drift from mean solar noon")
                           (incanter.charts/set-x-label "Day of year")
                           (incanter.charts/set-y-label "Minutes"))))
+
 
 (defn- plot-sunrise-predictions []
   (incanter.core/view (-> (incanter.charts/function-plot nth-sunrise-time 0 364)
@@ -261,4 +255,11 @@
                           (incanter.charts/set-title "Error")
                           (incanter.charts/set-x-label "Day of year")
                           (incanter.charts/set-y-label "Minutes"))))
+
+(plot-sunrise-predictions)
+(assert (<=
+         (apply max (map error-minutes (range 0 364)))
+         5)
+        "Our predicted time of sunrise is within 5 minutes of the time
+        published by the US Navy")
 
