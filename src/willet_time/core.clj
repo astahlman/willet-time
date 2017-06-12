@@ -190,10 +190,15 @@
       (incanter.charts/set-x-label "Day of year")
       (incanter.charts/set-y-label "Minutes")))
 
-(let [max-error-minutes (apply max (map error-minutes (range 0 364)))]
-  (assert (<= max-error-minutes 5)
-          "Our predicted time of sunrise is within 5 minutes of the
-          time published by the US Navy"))
+(defn plot-offset-from-standard-time []
+  (let [domain (range 0 365)
+        sunrise-floor 5.5
+        offset #(let [hr (sunrise seattle-latitude (days-since-winter-solstice %))]
+                  (max 0 (- sunrise-floor hr)))]
+    (-> (incanter.charts/function-plot #(* 60 (offset %)) 0 364)
+        (incanter.charts/set-title "Offset from Standard Time")
+        (incanter.charts/set-x-label "Day of year")
+        (incanter.charts/set-y-label "Minutes"))))
 
 (defn- set-background-color [chart color]
   (do
@@ -282,4 +287,7 @@
    "assets/sunrise-predictions.png")
   (incanter.core/save
    (plot-sunrise-predictions-error)
-   "assets/sunrise-predictions-error.png"))
+   "assets/sunrise-predictions-error.png")
+  (incanter.core/save
+   (plot-offset-from-standard-time)
+   "assets/offset-from-standard-time.png"))
