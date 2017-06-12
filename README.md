@@ -1,36 +1,6 @@
-# cst
+# Willet Time
 
-FIXME: description
+These calculations are the accompaniment to my [blog post](TODO: link) on Continuous Seasonal Time, a.k.a, Willet Time. It also contains the Clojurescript that powers the clock at the top of the post.
 
-## Installation
-
-Download from http://example.com/FIXME.
-
-## Usage
-
-FIXME: explanation
-
-    $ java -jar cst-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
-
-## License
-
-Copyright © 2017 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+The content of the .pdf is written in org-mode, exported to LaTeX, and
+converted to .pdf using pdf2latex.
