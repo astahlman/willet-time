@@ -1,0 +1,14 @@
+#!/bin/bash
+
+##############################################################
+# Autocompile `core.tex` with pdflatex any time it changes.  #
+##############################################################
+
+echo "Autocompiling core.tex"
+
+while : ; do
+    SRC=$(inotifywait core.tex --format "%w") || exit 1;
+    echo "Compiling ${SRC}..."
+    pdflatex -halt-on-error "$SRC" 2>&1 >> latex-autocompile.log
+    echo "Done."
+done

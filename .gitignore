@@ -9,3 +9,16 @@ pom.xml.asc
 /.nrepl-port
 .hgignore
 .hg/
+## Latex-related, generated files
+core.out
+core.aux
+core.log
+core.tex
+core.toc
+ltximg/
+
+# repl stuff
+.repl*
+
+# cljs build directory
+out/

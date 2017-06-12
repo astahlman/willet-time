@@ -1,5 +1,5 @@
 (ns cst.core
-  (import jodd.datetime.JDateTime)
+  (import java.awt.Color)
   (:require [incanter core charts]
             [clojure.string :as str]
             [clojure.java.io :as io])
@@ -10,99 +10,23 @@
 ;; 2. http://aa.usno.navy.mil/cgi-bin/aa_rstablew.pl?ID=AA&year=2017&task=0&state=WA&place=seattle
 ;; 3. http://totaleclipse.eu/Astronomy/EOT.html
 
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (println "Hello, World!"))
-
 (def ^:const seattle-latitude 47.38) ;; degrees N
-;; TODO: This is significantly more accurate if you set the solstice to 356, corresponding to December 23rd
-;; Why?
-(def ^:const winter-solstice-doy 354) ;; solstice was on December 21, in 2016 (0-based index)
+(def ^:const winter-solstice-doy 354) ;; solstice was on December 21 in 2016 (0-based index)
 (def ^:const alpha 23.439) ;; degrees, measure of the ecliptic
 (def ^:const hours-per-day 24.0)
-
-(def ^:const cities
-  {:seattle {:coords {:lat 47.6062 :lon -122.3321}
-             :test-data {"2017-01-01" {:sunrise "2017-01-01T07:58:00-08:00"
-                                       :sunset "2017-01-01T16:29:00-08:00"}
-                         "2017-03-01" {:sunrise "2017-03-01T06:49:00-08:00"
-                                       :sunset "2017-03-01T17:55:00-08:00"}
-                         "2017-06-01" {:sunrise "2017-06-01T05:15:00-07:00"
-                                       :sunset "2017-06-01T21:00:00-07:00"}
-                         "2017-09-01" {:sunrise "2017-09-01T06:28:00-07:00"
-                                       :sunset "2017-09-01T19:49:00-07:00"}
-                         "2017-12-01" {:sunrise "2017-12-01T07:37:00-08:00"
-                                       :sunset "2017-12-01T16:20:00-08:00"}}}})
-
-
-(defn- close-enough?
-  "Is delta between two Julian dates within 1 minute?"
-  [a b]
-  (println (.getTimeInMillis a))
-  (println (.getTimeInMillis b))
-  (let [millis-diff (Math/abs (- (.getTimeInMillis a)
-                                 (.getTimeInMillis b)))]
-    (println millis-diff)
-    (<= millis-diff 60000)))
-
-(defn- add-millis [jd millis]
-  (let [d (.clone jd)]
-    (.addMillisecond d millis)))
-
-(defn- add-seconds [jd seconds]
-  (add-millis jd (* 1000 seconds)))
-
-(defn- iso->instant
-  "Convert an ISO-8601 string to a java.time.Instant"
-  [s]
-  (java.time.Instant/from (.parse java.time.format.DateTimeFormatter/ISO_OFFSET_DATE_TIME s)))
-
-(defn- instant->jdt
-  "Convert a java.time.Instant to a JDateTime"
-  [instant]
-  (.changeTimeZone
-   (JDateTime. (.toEpochMilli instant))
-   (java.util.TimeZone/getTimeZone "UTC")))
-
-(defn- jdt
-  "Convert the given Julian Day (a numeric) to a JDateTime in the UTC time zone"
-  [jd]
-  (.setTimeZone
-   (JDateTime. jd)
-   (java.util.TimeZone/getTimeZone "UTC")))
-
-(defn- iso->jdt
-  "Convert an ISO-8601 string to a JDateTime"
-  [s]
-  (-> s
-      (iso->instant)
-      (instant->jdt)))
-
-(assert every?
-        (for [ts ["2017-05-27T11:59:00Z"
-                  "2017-05-27T12:00:00Z"
-                  "2017-05-27T12:01:00Z"]]
-          (close-enough?
-           (iso->jdt ts)
-           (jdt 2457901.0))))
-
-(let [now (JDateTime.)]
-  (assert (not (close-enough? now (add-seconds now 61))))
-  (assert (close-enough? now (add-seconds now 60)))
-  (assert (close-enough? now now))
-  (assert (close-enough? now (add-seconds now -60)))
-  (assert (not (close-enough? now (add-seconds now -61))))
-  (assert (close-enough? (iso->jdt "2017-08-08T00:00:00Z")
-                         (iso->jdt "2017-08-08T00:00:59Z")))
-  (assert (close-enough? (iso->jdt "2017-08-08T00:00:00Z")
-                         (iso->jdt "2017-08-08T00:01:00Z")))
-  (assert (not (close-enough? (iso->jdt "2017-08-08T00:00:00Z")
-                              (iso->jdt "2017-08-08T00:01:01Z")))))
+(def ^:const noon 12.0)
 
 (defn- radian->hr [r]
-  (* 24
+  (* hours-per-day
      (/ r (* Math/PI 2))))
+
+(defn- fmt-hours [n]
+  (let [minutes (* 60.0 (- n (Math/floor n)))]
+    (format "%02d:%02d" (int (Math/floor n)) (int minutes))))
+
+(assert (= "01:00" (fmt-hours 1)))
+(assert (= "01:15" (fmt-hours 1.25)))
+(assert (= "07:30" (fmt-hours 7.50)))
 
 (defn- psi
   "Angle of sun's highest elevation"
@@ -152,13 +76,6 @@
     latitude
     days-since-winter-solstice)))
 
-(defn- fmt-hours [n]
-  (let [minutes (* 60.0 (- n (Math/floor n)))]
-    (format "%02d:%02d" (int (Math/floor n)) (int minutes))))
-
-(assert (= "01:00" (fmt-hours 1)))
-(assert (= "01:15" (fmt-hours 1.25)))
-(assert (= "07:30" (fmt-hours 7.50)))
 
 (defn- eqn-of-time-eccentricity
   "Drift from solar noon due to the eccentricity of the Earth's
@@ -180,12 +97,28 @@
         ecliptic-component (radian->hr (psi days-since-winter-solstice))]
     (+ eccentricity-component ecliptic-component)))
 
+(declare daylight-hours)
+
 (defn sunrise
   "Return the hour of sunrise at the given latitude (in degrees) on
   day [0 - 365.25), where 0 corresponds to the winter solstice"
   [latitude days-since-winter-solstice]
-  (- (+ 12.0 (solar-noon-drift days-since-winter-solstice))
-     (length-of-morning latitude days-since-winter-solstice)))
+  (first (daylight-hours latitude days-since-winter-solstice)))
+
+(defn sunset
+  "Return the hour of sunset at the given latitude (in degrees) on
+  day [0 - 365.25), where 0 corresponds to the winter solstice"
+  [latitude days-since-winter-solstice]
+  (second (daylight-hours latitude days-since-winter-solstice)))
+
+(defn- daylight-hours
+  "Return the hour of sunrise at the given latitude (in degrees) on
+  day [0 - 365.25), where 0 corresponds to the winter solstice"
+  [latitude days-since-winter-solstice]
+  (let [solar-noon (+ noon (solar-noon-drift days-since-winter-solstice))
+        length-of-day (* 2 (length-of-morning latitude days-since-winter-solstice))]
+    [(- solar-noon (/ length-of-day 2))
+     (+ solar-noon (/ length-of-day 2))]))
 
 (defn- load-seattle-dataset []
   (letfn [(parse-str-as-hr [s]
@@ -241,25 +174,112 @@
 
 
 (defn- plot-sunrise-predictions []
-  (incanter.core/view (-> (incanter.charts/function-plot nth-sunrise-time 0 364)
-                          (incanter.charts/add-function (fn [doy]
-                                                          (sunrise
-                                                           seattle-latitude
-                                                           (days-since-winter-solstice doy))) 0 364)
-                          (incanter.charts/set-title "Time of Sunrise")
-                          (incanter.charts/set-x-label "Day of year")
-                          (incanter.charts/set-y-label "Hours")))
+  (-> (incanter.charts/function-plot nth-sunrise-time 0 364)
+      (incanter.charts/add-function (fn [doy]
+                                      (sunrise
+                                       seattle-latitude
+                                       (days-since-winter-solstice doy))) 0 364)
+      (incanter.charts/set-title "Time of Sunrise")
+      (incanter.charts/set-x-label "Day of year")
+      (incanter.charts/set-y-label "Hours")))
 
 
-  (incanter.core/view (-> (incanter.charts/function-plot error-minutes 0 364)
-                          (incanter.charts/set-title "Error")
-                          (incanter.charts/set-x-label "Day of year")
-                          (incanter.charts/set-y-label "Minutes"))))
+(defn- plot-sunrise-predictions-error []
+  (-> (incanter.charts/function-plot error-minutes 0 364)
+      (incanter.charts/set-title "Error")
+      (incanter.charts/set-x-label "Day of year")
+      (incanter.charts/set-y-label "Minutes")))
 
-(plot-sunrise-predictions)
-(assert (<=
-         (apply max (map error-minutes (range 0 364)))
-         5)
-        "Our predicted time of sunrise is within 5 minutes of the time
-        published by the US Navy")
+(let [max-error-minutes (apply max (map error-minutes (range 0 364)))]
+  (assert (<= max-error-minutes 5)
+          "Our predicted time of sunrise is within 5 minutes of the
+          time published by the US Navy"))
 
+(defn- set-background-color [chart color]
+  (do
+    (.setBackgroundPaint (.getPlot chart) color)
+    chart))
+
+(defn- plot-daylight-hours [sunrise-hr sunset-hr & [title]]
+  (-> (incanter.charts/xy-plot)
+      (incanter.charts/set-x-range 0 364)
+      (incanter.charts/set-y-range 3.5 22.5)
+      (set-background-color java.awt.Color/BLUE)
+      (incanter.charts/set-background-alpha 0.65)
+      (incanter.charts/set-alpha 0.8)
+      (incanter.charts/add-polygon
+       (concat sunrise-hr (reverse sunset-hr))
+       :fill-paint java.awt.Color/YELLOW)
+      (incanter.charts/set-title (or title "Daylight Hours"))
+      (incanter.charts/set-x-label "Day of year")
+      (incanter.charts/set-y-label "Hour of Day")))
+
+(defn plot-standard-daylight-hours []
+  (let [domain (range 0 365)
+        sunrise-hr (for [x domain]
+                     [x (sunrise seattle-latitude
+                                 (days-since-winter-solstice x))])
+        sunset-hr (for [x domain]
+                    [x (sunset seattle-latitude
+                               (days-since-winter-solstice x))])]
+    (plot-daylight-hours sunrise-hr
+                         sunset-hr
+                         "Daylight Hours (Standard)")))
+
+(defn plot-willet-time-daylight-hours
+  "Plot the daylight hours under Willet Time where the earliest
+  sunrise is at hour sunrise-floor"
+  [sunrise-floor]
+  (let [domain (range 0 365)
+        sunrise-hr-original (for [x domain]
+                              [x (sunrise seattle-latitude (days-since-winter-solstice x))])
+        sunset-hr-original (for [x domain]
+                             [x (sunset seattle-latitude (days-since-winter-solstice x))])
+        offset (map (fn [[x hr]]
+                      (max 0 (- sunrise-floor hr)))
+                    sunrise-hr-original)
+        sunrise-hr (map (fn [[x hr] offset] [x (+ hr offset)]) sunrise-hr-original offset)
+        sunset-hr (map (fn [[x hr] offset] [x (+ hr offset)]) sunset-hr-original offset)]
+    (plot-daylight-hours sunrise-hr
+                         sunset-hr
+                         "Daylight Hours (Willet Time)")))
+
+(defn plot-dst-daylight-hours
+  "Plot the daylight hours under Daylight Saving Time in 2017 the United States (DST in effect from March 12th - November 5th)"
+  []
+  (let [domain (range 0 365)
+        [dst-start-doy dst-end-doy] [71 309]
+        in-dst? #(and (>= % dst-start-doy)
+                      (<= % dst-end-doy))
+        offset #(if (in-dst? %) 1 0)
+        sunrise-hr (for [x domain]
+                     [x (+ (offset x)
+                           (sunrise seattle-latitude
+                                    (days-since-winter-solstice x)))])
+        sunset-hr (for [x domain]
+                    [x (+ (offset x)
+                          (sunset seattle-latitude
+                                  (days-since-winter-solstice x)))])]
+    (plot-daylight-hours sunrise-hr
+                         sunset-hr
+                         "Daylight Hours (Daylight Saving Time)")))
+
+(defn -main
+  "Print graphs comparing daylight hours under Standard, Daylight
+  Saving, and Willet Time"
+  [& args]
+  (incanter.core/save
+   (plot-standard-daylight-hours)
+   "assets/standard-daylight-hours.png")
+  (incanter.core/save
+   (plot-dst-daylight-hours)
+   "assets/dst-daylight-hours.png")
+  (incanter.core/save
+   (plot-willet-time-daylight-hours 5.5)
+   "assets/willet-time-daylight-hours.png")
+  (incanter.core/save
+   (plot-sunrise-predictions)
+   "assets/sunrise-predictions.png")
+  (incanter.core/save
+   (plot-sunrise-predictions-error)
+   "assets/sunrise-predictions-error.png"))

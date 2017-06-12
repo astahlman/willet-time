@@ -1,0 +1,351 @@
+# -*- after-save-hook: (tbl-autoexport); -*-
+#+TITLE: Derivation of the time of Sunrise and Sunset
+#+LATEX_HEADER_EXTRA: \usepackage{tikz, graphicx} \usepackage{tikz-3dplot} \usepackage{amsmath} \usetikzlibrary{arrows, angles, quotes}
+
+
+Let's call a given point on the surface of the earth $P$. The hour of
+sunrise and sunset at $P$ varies according to two factors:
+
+1. The time at which the Sun is highest in the sky (i.e, solar noon)
+2. The length of morning and afternoon - that is, the amount of time between
+   sunrise and solar noon, which is (practically) equal to the amount
+   of time between solar noon and sunset.
+
+* Frame of Reference
+
+We're going to use a geocentric frame of reference. This probably
+violates your intuition, so take a minute to get comfortable with this
+mental model.
+
+The origin of our frame of reference is at the center of the Earth, with the
+$Z$ axis pointing along the Earth's axis of rotation. We'll rotate our
+frame of reference around the $Z$ axis at a rate of 360° every 365.25
+days (i.e., 1 rotation per year). At the equinoxes, the Sun will pass
+through the same point on the $X$ axis ($Y_{sun}$ = $Z_{sun}$ = 0). At the
+solstices, the Sun will lie in the $XZ$ plane. At the summer solstice
+$Z_{sun} > 0$ and at the winter solstice $Z_{sun} < 0$.
+
+One way to picture this: imagine that the unit vectors of our
+coordinate system form a tangible, metal object with the Earth at the
+origin. Take a very short string. Attach one end to the Sun and tie
+the other end around the $X$ axis. Now set the entire apparatus on the
+center of a platform rotating at a rate of one revolution per
+year. The Earth rotates independently around the $Z$ axis once a day.
+
+** Position of Observer on Earth
+
+Let us call the location of an observer standing on Earth point
+$P$. We define a unit vector $\overrightarrow{P}$ from the origin to
+point $P$ with latitude $\lambda$ and azimuth angle $\phi$ which we
+take to be $0^{\circ}$ at noon. Over the course of 24 hours, $\phi$
+will uniformly sweep through a range of $360^{\circ}$ similar to the
+hour hand of a (24-hour) clock. $\phi$ can thus be seen as a measure
+of the local time, and given the location of $\overrightarrow{P}$ at
+sunrise we can calculate the hour.
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[z={(0cm,1cm)},y={(1cm,0cm)},x={(-6.53mm,-6.53mm)}]
+
+% The axes
+\draw[->] (xyz cs:x=-6) -- (xyz cs:x=6) node[above] {$x$};
+\draw[->] (xyz cs:y=-6) -- (xyz cs:y=6) node[right] {$y$};
+\draw[->] (xyz cs:z=-6) -- (xyz cs:z=6) node[above] {$z$};
+
+\def\ra{3.0}
+\def\_v_lambda{30.0}
+\def\v_phi{60.0}
+\pgfmathsetmacro\Px{cos(\v_phi) * cos(\_v_lambda) * \ra}
+\pgfmathsetmacro\Py{sin(\v_phi) * cos(\_v_lambda) * \ra}
+\pgfmathsetmacro\Pz{sin(\_v_lambda) * \ra}
+
+% Sphere
+\draw[canvas is xz plane at y = 0, fill opacity=.5, dashed, fill=yellow!70] (0,0) circle (\ra);
+\draw[canvas is yz plane at x = 0, fill opacity=.5, dashed, fill=red!20] (0,0) circle (\ra);
+\draw[canvas is xy plane at z = 0, fill opacity=.5, dashed, fill=blue!20] (0,0) circle (\ra);
+
+% Coordinates
+\coordinate (P) at (\Px,\Py,\Pz);
+\coordinate (Pxy) at (\Px,\Py,0);
+\coordinate (O) at (0,0,0);
+\coordinate (Px) at (\Px,0,0);
+
+% Vector P
+\draw[->] (O) -- (P);
+
+% Dots and labels for P
+\node[fill,circle,inner sep=1pt,label={right:P}] at (\Px,\Py,\Pz) {};
+\node[fill,circle,inner sep=1pt,label={right:$(P_x,P_y,0)$}] at (\Px,\Py,0) {};
+\node[fill,circle,inner sep=1pt,label={left:$(P_x,0,0)$}] at (\Px,0,0) {};
+
+% Azimuth, Elevation, and Projections of P
+\draw[dashed, fill=blue!20] (Pxy) -- (O) -- (Px) -- (Pxy) pic["$\phi$", solid, draw, angle radius = 7, angle eccentricity = 1.5] {angle = Px--O--Pxy};
+\draw[dashed, fill=orange!30] (P) -- (O) -- (Pxy) -- (P) pic["$\lambda$", solid, draw, angle radius = 9, angle eccentricity = 1.5] {angle = Pxy--O--P};
+
+\end{tikzpicture}
+\caption{The components of $\protect\overrightarrow{P}$ in our geocentric frame of reference}
+\end{figure}
+
+We can express the coordinates of $P$ in terms of $\phi$ and
+$\lambda$.
+
+\begin{align}
+  \sin{\lambda} &= \frac{P_z}{1} \\
+  \cos{\lambda} &= \frac{P_{(x,y)}}{1} \\
+  \cos{\phi} &= \frac{P_x}{P_{(x,y)}} \\
+  \sin{\phi} &= \frac{P_y}{P_{(x,y)}}
+\end{align}
+
+Substituting $\cos{\lambda}$ for $P_{(x,y)}$ yields the following
+form of $\overrightarrow{P}$:
+
+\begin{equation}
+  \overrightarrow{P} = (\cos{\lambda}\cos{\phi}, \cos{\lambda}\sin{\phi}, \sin{\lambda})
+\end{equation}
+
+** Position of Sun
+
+Let us define a unit vector $\overrightarrow{S}$ with latitude $\beta$
+and azimuth $\psi$ which points from the center of the Earth to the
+Sun. By the same logic as we used to derive the coordinates of point
+P, the coordinates of the Sun in our rotating frame of reference are:
+
+\begin{equation}
+  \overrightarrow{S} = (\cos{\beta}\cos{\psi}, \cos{\beta}\sin{\psi}, \sin{\beta})
+\end{equation}
+
+We're going to make a simplifying assumption: the Sun moves around the
+Earth in a circle parallel to the equator at uniform speed. The orbit
+is actually an ellipse, but it's fairly close to a circle and circles
+are easier to work with. The coordinates of $\overrightarrow{S}$ are
+$(\cos{2 \pi d}, \sin{2 \pi d}, 0)$, where $d = \frac{\text{\# of days
+since winter solstice}}{365.25}$.
+
+But the Sun's orbit isn't parallel to the Earth; it's actually tilted
+relative to the equator at an angle that we'll call $\alpha \approx
+23.4^{\circ}$. This path is called the ecliptic.
+
+To compensate for it, we must apply a transformation to rotate our the
+path of the Sun about the y-axis by $\alpha$. The form of such a
+rotation is given below.
+
+\begin{equation}
+  R_{y}(\alpha) =
+    \begin{bmatrix}
+        \cos{\alpha} & 0 & \sin{\alpha} \\
+        0 & 1 & 0 \\
+        -\sin{\alpha} & 0 & \cos{\alpha}
+    \end{bmatrix}
+\end{equation}
+
+In addition, we must also account for the year-long rotation of our
+special frame of reference about the Earth. The Sun is moving
+counter-clockwise around the Earth, but our frame of reference is also
+rotating counter-clockwise. To account for this, we rotate the Sun "back" into
+our frame of reference (i.e., clockwise) by $2 \pi d$ radians about
+the $Z$ axis.
+
+\begin{equation}
+  R_{z}(2 \pi d) =
+    \begin{bmatrix}
+        \cos{2 \pi d} & \sin{2 \pi d} & 0 \\
+        -\sin{2 \pi d} & \cos{2 \pi d} & 0 \\
+        0 & 0 & 1
+    \end{bmatrix}
+\end{equation}
+
+[TODO: Insert diagram here]
+
+Composing these transformations of $\overrightarrow{S}$ yields:
+
+\begin{align}
+\overrightarrow{S} &=
+    \begin{bmatrix}
+        \cos{2 \pi d} & \sin{2 \pi d} & 0 \\
+        -\sin{2 \pi d} & \cos{2 \pi d} & 0 \\
+        0 & 0 & 1
+    \end{bmatrix}
+    \begin{bmatrix}
+        \cos{\alpha} & 0 & \sin{\alpha} \\
+        0 & 1 & 0 \\
+        -\sin{\alpha} & 0 & \cos{\alpha}
+    \end{bmatrix}
+    \begin{bmatrix}
+        \cos{2 \pi d} \\
+        \sin{2 \pi d} \\
+        0
+    \end{bmatrix} \\
+   &=
+    \begin{bmatrix}
+        \cos{\alpha}\cos{2 \pi d} & \sin{2 \pi d} & \sin{\alpha} \cos{2 \pi d} \\
+        -\cos{\alpha} \sin{2 \pi d} & \cos{2 \pi d} & -\sin{\alpha} \sin{2 \pi d} \\
+        -\sin{\alpha} & 0 & \cos{\alpha}
+    \end{bmatrix}
+    \begin{bmatrix}
+        \cos{2 \pi d} \\
+        \sin{2 \pi d} \\
+        0
+    \end{bmatrix} \\
+   &=
+    \begin{bmatrix}
+        \cos{\alpha}\cos^{2}{2 \pi d} + \sin^{2}{2 \pi d} \\
+        \sin{2 \pi d} \cos{2 \pi d} \left( 1 - \cos{\alpha} \right) \\
+        -\sin{\alpha} \cos{2 \pi d}
+    \end{bmatrix}
+\end{align}
+
+$\cos{\alpha} \approx .9178$, so
+
+\begin{equation}
+  \overrightarrow{S} \approx
+    \begin{bmatrix}
+        1 \\
+        (.08 \sin{2 \pi d}) \cos{2 \pi d} \\
+        (-.4) \cos{2 \pi d}
+    \end{bmatrix}
+\end{equation}
+
+$S_{x}$ is nearly constant, and the range of $S_{y}$ is roughly $1/5$
+the range of $S_{z}$. The resulting shape is a figure-8 about the $X$
+axis.
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[scale=5.0]
+ \draw[->] (-.75,0) -- (.75,0) node[above] {$y$};
+ \draw[->] (0,-.75) -- (0,.75) node[right] {$z$};
+ \draw[domain=0.0:60.0,samples=100,variable=\d,blue] plot ({.08 * sin(2.0 * pi * \d) * cos(2.0 * pi * \d)},{-.4 * cos(2.0 * pi * \d)});
+\end{tikzpicture}
+\caption{The path of the Sun in the $yz$ plane}
+\end{figure}
+
+This figure-eight path is called the analemma, and you can observe it
+from Earth by taking a photograph of the Sun's position in the sky
+from the same time (i.e., periodically, every 24 hours) and place
+throughout the year.
+
+\begin{figure}
+\includegraphics[scale=.5]{assets/analemma_original.jpg}
+\centering
+\caption{Long-exposure photograph of the analemma as seen from Budapest. (Source: https://flic.kr/p/j16mbH)}
+\end{figure}
+
+* Hour of Sunrise and Sunset
+
+We're now ready to calculate the two components that determine the
+hour of sunrise on a given day: symmetric lengths of morning and
+afternoon and the hour of solar noon.
+
+** Length of morning
+
+Let $\phi_{s}$ be the azimuth angle of point $P$ at the time of
+sunrise.
+
+The magnitude of the angle $(\phi_{s} - \psi)$ represents the
+(symmetric) length of morning and afternoon at point $P$. $(\phi -
+\psi) = 0$ when the Sun reaches its highest elevation in the sky at
+solar noon.
+
+At sunrise and sunset, $\overrightarrow{P} \perp \overrightarrow{S}$,
+so $\overrightarrow{P} \cdot \overrightarrow{S} = 0$ (we're making the
+simplifying assumption that the radius of the Sun is negligible
+compared to its distance from Earth.)
+
+\begin{gather}
+  \overrightarrow{P} \cdot \overrightarrow{S} = 0 \\
+  \cos{\phi_{s}} \cos{\lambda} \cos{\psi} \cos{\beta} + \sin{\phi_{s}} \cos{\lambda} \sin{\psi} \cos{\beta} + \sin{\lambda} \sin{\beta} = 0 \\
+  \cos{\lambda} \cos{\beta} \left( \cos{\phi_{s}} \cos{\psi} + \sin{\phi_{s}} \sin{\psi} \right) = -\sin{\lambda} \sin{\beta} \\
+  \cos{\phi_{s}} \cos{\psi} + \sin{\phi_{s}} \sin{\psi} = -\tan{\lambda} \tan{\beta} \\
+  \cos \left( {\phi_{s} - \psi} \right) = -\tan{\lambda} \tan{\beta}
+\end{gather}
+
+Note: the last step in the above equation makes use of the
+trigonometric identity
+
+\begin{equation}
+  \cos(X - Y) = \cos{X} \cos{Y} + \sin{X} \sin{Y}
+\end{equation}
+
+Now, solving for $\tan{\beta}$ in terms of $\alpha$, $d$, and $\psi$.
+
+\begin{align}
+  \tan{\beta} &= \frac{\sin{\beta}}{\cos{\beta}} \\
+              &= \frac{S_{z} \cos{\psi}}{S_{x}} \\
+              &= \frac{-\sin{\alpha} \cos{2 \pi d} \cos{\psi}}{\cos{\alpha} \cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}}
+\end{align}
+
+Plugging $\tan{\beta}$ back into our equation for the length of morning yields
+
+\begin{equation}
+  \phi_{s} - \psi = \arccos \left( \tan{\lambda} \cdot \frac{\sin{\alpha} \cos{2 \pi d} \cos{\psi}}{\cos{\alpha} \cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}} \right)
+\end{equation}
+
+** Hour of Solar Noon
+
+All that remains in order to calculate the time of sunrise is to solve
+for the Sun's angle of highest elevation, $\psi$.
+
+\begin{align}
+  \tan{\psi} &= \frac{\sin{\psi}}{\cos{\psi}} \\
+             &= \frac{S_{y}}{S_{x}} \\
+             &= \frac{(1 - \cos{\alpha})\cos{2 \pi d}\sin{2 \pi d}}{\cos{\alpha}\cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}} \\
+  \psi &= \arctan \left( \frac{(1 - \cos{\alpha})\cos{2 \pi d}\sin{2 \pi d}}{\cos{\alpha}\cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}} \right)
+\end{align}
+
+** Full Calculation
+
+Combining our expression for the length of morning and the Sun's angle
+of highest elevation, we can calculate the hour of sunrise as follows.
+
+\begin{align}
+  \text{hour of sunrise, sunset} &= \text{12:00} + \frac{24}{2 \pi} \left[ \psi \pm (\phi_{s} - \psi) \right] \\
+  \text{hour of sunrise, sunset} &= \text{12:00} + \frac{24}{2 \pi} \left[ \psi \pm \arccos \left( \tan{\lambda} \cdot \frac{\sin{\alpha} \cos{2 \pi d} \cos{\psi}}{\cos{\alpha} \cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}} \right) \right]
+\end{align}
+
+where
+\begin{equation*}
+  \psi = \arctan \left( \frac{(1 - \cos{\alpha})\cos{2 \pi d}\sin{2 \pi d}}{\cos{\alpha}\cos^{2}{2 \pi d} + \sin^{2}{2 \pi d}} \right)
+\end{equation*}
+
+The blue line in the figure below shows the hour of sunrise as
+predicted by this equation for the calendar year of 2017 in Seattle,
+Washington ($\lambda = 47.38^{\circ}$), The red shows the ground
+truth taken from the tables published by the U.S. Navy Observatory.
+
+\begin{figure}
+\includegraphics[scale=.8]{assets/sunrise-predictions.png}
+\centering
+\caption{Red: Actual hour of sunrise; Blue: Predicted hour of sunrise}
+\end{figure}
+
+\begin{figure}
+\includegraphics[scale=.8]{assets/sunrise-predictions-error.png}
+\centering
+\caption{Error in our predicted hour of sunrise, in minutes}
+\end{figure}
+
+The error in our calculation stems from our earlier assumption that
+the orbit of the Sun is a circle.
+
+* References
+
+This derivation is based on the one at
+http://www.physics.rutgers.edu/~twatts/sunrise/node6.html.
+
+* Tooling :noexport:
+
+Every time this buffer is saved, export it to Latex. Start the shell
+script named =watch-build= in this directory to auto-compile the .tex
+source to a pdf. Open =core.pdf= and enable the auto-revert-buffer
+minor-mode to automatically refresh.
+
+#+BEGIN_SRC emacs-lisp
+  (defun tbl-autoexport ()
+    (message "Exporting to latex")
+    (org-latex-export-to-latex))
+#+END_SRC
+
+* TODOs                                                            :noexport:
+1. Derive sunset equation without assuming circular orbit
+2. Annotate and tangle the Clojure(script) source from this document?
+3. Add diagram of the rotation transformations in Section 3
