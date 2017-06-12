@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [incanter/incanter-core "1.5.7"]
                  [incanter/incanter-charts "1.5.7"]]
-  :main ^:skip-aot cst.core
+  :main ^:skip-aot willet-time.core
   :target-path "target/%s"
   :exclusions [org.clojure/tools.trace]
   :profiles {:uberjar {:aot :all}})

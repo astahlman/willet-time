@@ -141,9 +141,9 @@ rotation is given below.
 In addition, we must also account for the year-long rotation of our
 special frame of reference about the Earth. The Sun is moving
 counter-clockwise around the Earth, but our frame of reference is also
-rotating counter-clockwise. To account for this, we rotate the Sun "back" into
-our frame of reference (i.e., clockwise) by $2 \pi d$ radians about
-the $Z$ axis.
+rotating counter-clockwise. To account for this, we rotate the Sun
+"back" into our frame of reference (i.e., clockwise) by $2 \pi d$
+radians about the $Z$ axis.
 
 \begin{equation}
   R_{z}(2 \pi d) =

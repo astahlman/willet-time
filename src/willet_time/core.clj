@@ -1,4 +1,4 @@
-(ns cst.core
+(ns willet-time.core
   (import java.awt.Color)
   (:require [incanter core charts]
             [clojure.string :as str]
