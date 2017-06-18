@@ -21,4 +21,4 @@ ltximg/
 .repl*
 
 # cljs build directory
-out/
+resources/public/js
