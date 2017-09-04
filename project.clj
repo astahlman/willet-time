@@ -20,4 +20,7 @@
                                    :asset-path "js/out"
                                    :output-to "resources/public/js/main.js"
                                    :output-dir "resources/public/js/out"}}]}
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
+                                  [figwheel-sidecar "0.5.0-2"]]
+                   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}})
