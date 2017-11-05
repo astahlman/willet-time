@@ -19,7 +19,14 @@
                         :compiler {:main "willet-time.clock"
                                    :asset-path "js/out"
                                    :output-to "resources/public/js/main.js"
-                                   :output-dir "resources/public/js/out"}}]}
+                                   :output-dir "resources/public/js/out"}}
+                       {:id "core"
+                        :source-paths ["src/"]
+                        :figwheel true
+                        :compiler {:main "willet-time.core"
+                                   :asset-path "js/out"
+                                   :output-to "resources/public/js/core.js"
+                                   :output-dir "resources/public/js/out-core"}}]}
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
                                   [figwheel-sidecar "0.5.0-2"]]

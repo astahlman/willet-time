@@ -35,6 +35,18 @@
       (incanter.charts/set-x-label "Day of year")
       (incanter.charts/set-y-label "Hours")))
 
+(comment (defn- plot-sunrise-predictions-across-lats []
+           "What time does the sunrise at various latitudes?"
+           (-> (incanter.charts/function-plot #(nth (core/sunrise ))))
+
+           ))
+
+(defn sunrise-on-doy-at-lat [doy lat]
+  (core/sunrise
+   lat
+   (core/days-since-winter-solstice doy)))
+
+(sunrise-on-doy-at-lat 0.0 80.0)
 
 (defn- prediction-error-in-seattle-on
   [doy]
@@ -54,9 +66,9 @@
       (incanter.charts/set-y-label "Minutes")))
 
 ;; TODO: Use offset-from-standard-time method in core
-(defn- plot-offset-from-standard-time []
-  (let [sunrise-floor 5.5
-        offset #(let [hr (predicted-seattle-sunrise-hour-on %)]
+(defn- plot-offset-from-standard-time [lat]
+  (let [sunrise-floor 6.0
+        offset #(let [hr (core/sunrise lat %)]
                   (max 0 (- sunrise-floor hr)))]
     (-> (incanter.charts/function-plot #(* 60 (offset %)) 0 364)
         (incanter.charts/set-title "Offset from Standard Time")
@@ -153,6 +165,56 @@
    (plot-sunrise-predictions-error)
    "assets/sunrise-predictions-error.png")
   (incanter.core/save
-   (plot-offset-from-standard-time)
+   (plot-offset-from-standard-time core/seattle-latitude)
    "assets/offset-from-standard-time.png"))
+
+(defn- plot-sun-angle-of-highest-elevation []
+  "The Sun's angle of highest elevation throughout the year"
+  (incanter.core/view
+   (-> (incanter.charts/function-plot core/psi 0 364)
+       (incanter.charts/set-title "Angle of Sun's highest elevation")
+       (incanter.charts/set-x-label "Days since winter solstice")
+       (incanter.charts/set-y-label "Angle (radians)"))))
+
+(defn- plot-sunrise-times-slices []
+  (incanter.core/view
+   (-> (incanter.charts/function-plot #(core/sunrise % 0) -90 90)
+       (incanter.charts/add-function #(core/sunrise % 90) -90 90)
+       (incanter.charts/add-function #(core/sunrise % 180) -90 90)
+       (incanter.charts/add-function #(core/sunrise % 270) -90 90)
+       (incanter.charts/set-title "Hour of sunrise")
+       (incanter.charts/set-x-label "Latitude (deg)")
+       (incanter.charts/set-y-label "Hour of sunrise"))))
+
+(defn- plot-sunrise-times-shaded []
+  "x: day of year
+   y: latitude
+   color: hour of sunrise"
+  (incanter.core/view
+   (->
+    (let [f (fn [doy lat]
+              (let [hr (core/sunrise lat doy)]
+                (if (Double/isNaN hr)
+                  -1.0 ;; No sunrise
+                  hr)))]
+      (incanter.charts/heat-map f 0 364 -90.0 90.0 :z-label "Hour"))
+    (incanter.charts/set-x-label "Days since winter solstice")
+    (incanter.charts/set-y-label "Latitude (degrees)")
+    (incanter.charts/set-title "Hour of sunrise by latitude throughout the year"))))
+
+;;(plot-sunrise-times-shaded)
+
+(defn- plot-offset-from-standard-time-shaded []
+  (incanter.core/view
+   (->
+    (let [sunrise-floor 6.0
+          f (fn [doy lat]
+              (let [hr (core/sunrise lat doy)]
+                (if (Double/isNaN hr)
+                  -1.0 ;; No sunrise
+                  (max 0 (- sunrise-floor hr)))))]
+      (incanter.charts/heat-map f 0 364 -90.0 90.0 :z-label "Hour")))))
+
+;;(plot-offset-from-standard-time-shaded)
+;;(incanter.core/view (plot-offset-from-standard-time 75))
 

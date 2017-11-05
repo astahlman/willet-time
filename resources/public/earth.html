@@ -1,0 +1,201 @@
+<!doctype HTML>
+<title>D3 Test</title>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<style type="text/css">
+  body {
+    margin:0 auto;
+    position:relative;
+    width:958px;
+  }
+  .chart rect {
+    stroke: white;
+  }
+
+  #slide-container {
+      width: 100%; /* Width of the outside container */
+  }
+  
+  /* The slider itself */
+  .slider {
+      -webkit-appearance: none;  /* Override default CSS styles */
+      appearance: none;
+      width: 100%; /* Full-width */
+      height: 25px; /* Specified height */
+      background: #d3d3d3; /* Grey background */
+      outline: none; /* Remove outline */
+      opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+      -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+      transition: opacity .2s;
+  }
+  
+  /* Mouse-over effects */
+  .slider:hover {
+      opacity: 1; /* Fully shown on mouse-over */
+  }
+  
+  /* The slider handle (use webkit (Chrome, Opera, Safari, Edge) and moz (Firefox) to override default look) */
+  .slider::-webkit-slider-thumb {
+      -webkit-appearance: none; /* Override default look */
+      appearance: none;
+      width: 25px; /* Set a specific slider handle width */
+      height: 25px; /* Slider handle height */
+      background: #4CAF50; /* Green background */
+      cursor: pointer; /* Cursor on hover */
+  }
+  
+  .slider::-moz-range-thumb {
+      width: 25px; /* Set a specific slider handle width */
+      height: 25px; /* Slider handle height */
+      background: #4CAF50; /* Green background */
+      cursor: pointer; /* Cursor on hover */
+  }
+</style>
+
+<head>
+  <meta charset="UTF-8">
+  <script src="js/core.js" type="text/javascript"></script>
+</head>
+
+<body>
+  <div id="map-container">
+  </div>
+  <div id="slide-container">
+    <input type="range" min="0" max="364" value="0" class="slider" id="day-of-year">
+  </div>
+  <p id="day-of-year-text"/>
+</body>
+<script>
+    var totalHeight = 450;
+    var totalWidth = 900;
+
+    var latitudes = Array.from(new Array(180 + 1), (x, i) => i - 90)
+                         .filter((x) => x % 5 == 0);
+
+    var svgChart = d3.select("#map-container")
+                        .append("svg")
+                        .attr("class", "chart")
+                        .attr("width", totalWidth)
+                        .attr("height", totalHeight);
+
+    var height = d3.scaleLinear()
+        .domain(d3.min(latitudes), d3.max(latitudes))
+        .range(0, svgChart.height)
+
+    var numRows = latitudes.length;
+    var rowHeight = totalHeight / numRows;
+    var colors = ["#3f0444", "#220e63", "#06d149", "#82ff28","#f8ff38", "#e8c814"];
+
+    function formatHourOfDay(x) {
+        if (isNaN(x)) {
+            return "--:--";
+        } else {
+            var hr = Math.floor(x);
+            var minute = Math.floor(60 * (x - hr));
+            var pad = (x) => x.toString().padStart(2, "0");
+            return pad(hr) + ":" + pad(minute);
+        }
+    }
+
+    var initDayOfYear = 0;
+    var sunriseTimes = latitudes.map(function (lat) {
+        return willet_time.core.sunrise(lat, initDayOfYear);
+    });
+
+    var _heatMapColor = d3.scaleLinear()
+        .domain(d3.range(0, 1, 1.0 / (colors.length - 1)))
+        .range(colors.reverse());
+
+    var _sunriseColor = d3.scaleLinear()
+        .domain(d3.extent(sunriseTimes))
+        .range([0, 1]);
+
+    function heatMapColor(x) {
+        if (x === SUN_NEVER_CAME_UP) {
+            return "#000000";
+        } else if (x === SUN_NEVER_WENT_DOWN) {
+            return "#ffffff";
+        } else {
+            return _heatMapColor(x);
+        }
+    }
+  
+    function sunriseColor(x) {
+        if (x === SUN_NEVER_CAME_UP || x === SUN_NEVER_WENT_DOWN) {
+            return x;
+        } else {
+            return _sunriseColor(x);
+        }
+    }
+
+    var yOffsets = Array.from(new Array(numRows).keys()).map((i) => i * rowHeight).reverse();
+
+    var SUN_NEVER_CAME_UP = "NEVER_UP";
+    var SUN_NEVER_WENT_DOWN = "NEVER_DOWN";
+
+    function updatePlot(dayOfYear) {
+        sunriseTimes = latitudes.map(function (lat) {
+            var sunriseHour = willet_time.core.sunrise(lat, dayOfYear);
+            if (isNaN(sunriseHour)) {
+                // Hacky, cheap, test: there had to have been a sunrise 45 degrees from here
+                var neighboringLat = lat + (lat >= 0 ? -45 : 45);
+                sunriseHour = willet_time.core.sunrise(neighboringLat, dayOfYear);
+                // if was after 6:00, the sun never came up here
+                if (sunriseHour >= 6.0) {
+                    return SUN_NEVER_CAME_UP;
+                } else { // else, the sun never went down here
+                    return SUN_NEVER_WENT_DOWN;
+                }
+            }
+            return sunriseHour;
+        });
+
+        var groups = svgChart.selectAll("g")
+            .data(sunriseTimes);
+
+        var groupsEnter = groups.enter().append("g")
+            .attr("transform", (d, i) => "translate(0, " + yOffsets[i] + ")");
+
+        // ENTER
+        groupsEnter.append("rect")
+            .attr("x", 0)
+            .attr("width", "100%")
+            .attr("height", rowHeight)
+            .attr("fill", (d) => heatMapColor(sunriseColor(d)))
+            .attr("fill-opacity", "0.65");
+
+        groupsEnter.append("text")
+            .attr("x", 10)
+            .attr("y", rowHeight / 2)
+            .attr("dy", ".35em")
+            .attr("width", "100%")
+            .attr("height", rowHeight)
+            .attr("font-size", "12")
+            .text((d, i) => latitudes[i] + "° - " + formatHourOfDay(d));
+
+        // UPDATE
+        groups.select("rect")
+            .attr("fill", (d) => heatMapColor(sunriseColor(d)));
+
+        groups.select("text")
+            .text((d, i) => latitudes[i] + "° - " + formatHourOfDay(d));
+    }
+
+    svgChart.append("image")
+        .attr("xlink:href", "earth.jpeg")
+        .attr("width", "100%")
+        .attr("height", "100%");
+
+    updatePlot(initDayOfYear);
+
+    var slider = document.getElementById("day-of-year");
+    slider.value = initDayOfYear;
+
+    // TODO: This is actually days after December solstice. Make it day of year
+    var dayOfYearText = document.getElementById("day-of-year-text");
+    slider.oninput = function() {
+        var dayOfYear = this.value;
+        updatePlot(dayOfYear)
+        dayOfYearText.innerHTML = dayOfYear;
+    } 
+  
+</script>

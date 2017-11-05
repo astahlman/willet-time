@@ -9,10 +9,13 @@
 
 (def ^:const seattle-latitude 47.38) ;; degrees N
 (def ^:const winter-solstice-doy 354) ;; solstice was on December 21 in 2016 (0-based index)
-(def ^:const alpha 23.439) ;; degrees, measure of the ecliptic
+(def ^:const ALPHA 23.439) ;; degrees, measure of the ecliptic
 (def ^:const hours-per-day 24.0)
 (def ^:const noon 12.0)
 (def ^:const PI 3.14159265)
+
+;; For logging in the browser
+(enable-console-print!)
 
 ;; The sun rises no earlier than 05:30 under Willet Time
 ;; (This choice is totally arbitary.)
@@ -58,23 +61,23 @@
   (/ (* x 2 PI)
      360.0))
 
-(defn- psi
+(defn psi
   "Angle of sun's highest elevation"
   [days-since-winter-solstice]
   (let [d (/ days-since-winter-solstice 365.25)
         Pi2d (* PI 2 d)
-        numerator (* (- 1 (cos (deg->radians alpha)))
+        numerator (* (- 1 (cos (deg->radians ALPHA)))
                      (sin Pi2d)
                      (cos Pi2d))
         denominator (+
-                     (* (cos (deg->radians alpha))
+                     (* (cos (deg->radians ALPHA))
                         (cos Pi2d)
                         (cos Pi2d))
                      (* (sin Pi2d)
                         (sin Pi2d)))]
     (atan (/ numerator denominator))))
 
-(defn- sunrise-to-noon-angle-precise
+(defn sunrise-to-noon-angle-precise
   "Return the difference (in radians) between of the azimuth of P and
   at sunrise and the Sun's angle of highest elevation at solar noon."
   [latitude days-since-winter-solstice]
@@ -83,19 +86,20 @@
         Pi2d (* PI 2 d)
         numerator (* -1
                      (cos Pi2d)
-                     (sin (deg->radians alpha))
+                     (sin (deg->radians ALPHA))
                      (cos (psi days-since-winter-solstice)))
         denominator (+
-                     (* (cos (deg->radians alpha))
+                     (* (cos (deg->radians ALPHA))
                         (cos Pi2d)
                         (cos Pi2d))
                      (* (sin Pi2d)
                         (sin Pi2d)))
         tan-Beta (/ numerator denominator)
         tan-Lambda (tan lambda)]
-    (acos (* -1
+    (let [x (* -1
              tan-Beta
-             tan-Lambda))))
+             tan-Lambda)]
+      (acos x))))
 
 (defn length-of-morning
   "Return the number of hours from sunrise to noon at the given
@@ -128,7 +132,7 @@
 
 (declare daylight-hours)
 
-(defn sunrise
+(defn ^:export sunrise
   "Return the hour of sunrise at the given latitude (in degrees) on
   day [0 - 365.25), where 0 corresponds to the winter solstice"
   [latitude days-since-winter-solstice]
@@ -148,7 +152,6 @@
         length-of-day (* 2 (length-of-morning latitude days-since-winter-solstice))]
     [(- solar-noon (/ length-of-day 2))
      (+ solar-noon (/ length-of-day 2))]))
-
 
 ;; TODO: Make this private and accept calendar day of year for sunrise and sunset functions
 (defn days-since-winter-solstice
