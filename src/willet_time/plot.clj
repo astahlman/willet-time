@@ -21,35 +21,16 @@
 (def actual-seattle-daylight-hours (data/load-dataset))
 (def actual-seattle-sunrises (map first actual-seattle-daylight-hours))
 
-(defn- predicted-seattle-sunrise-hour-on [doy]
-  (core/sunrise
-   core/seattle-latitude
-   (core/days-since-winter-solstice doy)))
-
 (defn- plot-sunrise-predictions []
   (-> (incanter.charts/function-plot #(nth actual-seattle-sunrises %)
                                      0 364)
-      (incanter.charts/add-function predicted-seattle-sunrise-hour-on
+      (incanter.charts/add-function #(core/sunrise core/seattle-latitude %)
                                     0 364)
       (incanter.charts/set-title "Time of Sunrise")
       (incanter.charts/set-x-label "Day of year")
       (incanter.charts/set-y-label "Hours")))
 
-(comment (defn- plot-sunrise-predictions-across-lats []
-           "What time does the sunrise at various latitudes?"
-           (-> (incanter.charts/function-plot #(nth (core/sunrise ))))
-
-           ))
-
-(defn sunrise-on-doy-at-lat [doy lat]
-  (core/sunrise
-   lat
-   (core/days-since-winter-solstice doy)))
-
-(sunrise-on-doy-at-lat 0.0 80.0)
-
-(defn- prediction-error-in-seattle-on
-  [doy]
+(defn- prediction-error-in-seattle-on [doy]
   "Error in minutes for the predicted time of sunrise in Seattle on
   the given day of the year"
   (nth
@@ -59,21 +40,16 @@
    doy))
 
 (defn- plot-sunrise-predictions-error []
-  (-> (incanter.charts/function-plot prediction-error-in-seattle-on
-                                     0 364)
+  (-> (incanter.charts/function-plot prediction-error-in-seattle-on 0 364)
       (incanter.charts/set-title "Error")
       (incanter.charts/set-x-label "Day of year")
       (incanter.charts/set-y-label "Minutes")))
 
-;; TODO: Use offset-from-standard-time method in core
 (defn- plot-offset-from-standard-time [lat]
-  (let [sunrise-floor 6.0
-        offset #(let [hr (core/sunrise lat %)]
-                  (max 0 (- sunrise-floor hr)))]
-    (-> (incanter.charts/function-plot #(* 60 (offset %)) 0 364)
-        (incanter.charts/set-title "Offset from Standard Time")
-        (incanter.charts/set-x-label "Day of year")
-        (incanter.charts/set-y-label "Minutes"))))
+  (-> (incanter.charts/function-plot #(core/offset-from-standard-time lat %) 0 364)
+      (incanter.charts/set-title "Offset from Standard Time")
+      (incanter.charts/set-x-label "Day of year")
+      (incanter.charts/set-y-label "Minutes")))
 
 (defn- set-background-color [chart color]
   (do
@@ -97,24 +73,21 @@
 (defn plot-standard-daylight-hours []
   (let [domain (range 0 365)
         sunrise-hr (for [x domain]
-                     [x (core/sunrise core/seattle-latitude
-                                 (core/days-since-winter-solstice x))])
+                     [x (core/sunrise core/seattle-latitude x)])
         sunset-hr (for [x domain]
-                    [x (core/sunset core/seattle-latitude
-                               (core/days-since-winter-solstice x))])]
+                    [x (core/sunset core/seattle-latitude x)])]
     (plot-daylight-hours sunrise-hr
                          sunset-hr
                          "Daylight Hours (Standard)")))
 
-(defn plot-willet-time-daylight-hours
+(defn plot-willet-time-daylight-hours [sunrise-floor]
   "Plot the daylight hours under Willet Time where the earliest
   sunrise is at hour sunrise-floor"
-  [sunrise-floor]
   (let [domain (range 0 365)
         sunrise-hr-original (for [x domain]
-                              [x (core/sunrise core/seattle-latitude (core/days-since-winter-solstice x))])
+                              [x (core/sunrise core/seattle-latitude x)])
         sunset-hr-original (for [x domain]
-                             [x (core/sunset core/seattle-latitude (core/days-since-winter-solstice x))])
+                             [x (core/sunset core/seattle-latitude x)])
         offset (map (fn [[x hr]]
                       (max 0 (- sunrise-floor hr)))
                     sunrise-hr-original)
@@ -124,9 +97,9 @@
                          sunset-hr
                          "Daylight Hours (Willet Time)")))
 
-(defn plot-dst-daylight-hours
-  "Plot the daylight hours under Daylight Saving Time in 2017 the United States (DST in effect from March 12th - November 5th)"
-  []
+(defn plot-dst-daylight-hours []
+  "Plot the daylight hours under Daylight Saving Time in 2017 the
+  United States (DST in effect from March 12th - November 5th)"
   (let [march-12th 71 november-5th 309
         [dst-start-doy dst-end-doy] [march-12th november-5th]
         domain (range 0 365)
@@ -135,38 +108,13 @@
         offset #(if (in-dst? %) 1 0)
         sunrise-hr (for [x domain]
                      [x (+ (offset x)
-                           (core/sunrise core/seattle-latitude
-                                    (core/days-since-winter-solstice x)))])
+                           (core/sunrise core/seattle-latitude x))])
         sunset-hr (for [x domain]
                     [x (+ (offset x)
-                          (core/sunset core/seattle-latitude
-                                  (core/days-since-winter-solstice x)))])]
+                          (core/sunset core/seattle-latitude x))])]
     (plot-daylight-hours sunrise-hr
                          sunset-hr
                          "Daylight Hours (Daylight Saving Time)")))
-
-(defn -main
-  "Print graphs comparing daylight hours under Standard, Daylight
-  Saving, and Willet Time"
-  [& args]
-  (incanter.core/save
-   (plot-standard-daylight-hours)
-   "assets/standard-daylight-hours.png")
-  (incanter.core/save
-   (plot-dst-daylight-hours)
-   "assets/dst-daylight-hours.png")
-  (incanter.core/save
-   (plot-willet-time-daylight-hours 5.5)
-   "assets/willet-time-daylight-hours.png")
-  (incanter.core/save
-   (plot-sunrise-predictions)
-   "assets/sunrise-predictions.png")
-  (incanter.core/save
-   (plot-sunrise-predictions-error)
-   "assets/sunrise-predictions-error.png")
-  (incanter.core/save
-   (plot-offset-from-standard-time core/seattle-latitude)
-   "assets/offset-from-standard-time.png"))
 
 (defn- plot-sun-angle-of-highest-elevation []
   "The Sun's angle of highest elevation throughout the year"
@@ -198,11 +146,9 @@
                   -1.0 ;; No sunrise
                   hr)))]
       (incanter.charts/heat-map f 0 364 -90.0 90.0 :z-label "Hour"))
-    (incanter.charts/set-x-label "Days since winter solstice")
+    (incanter.charts/set-x-label "Day of year")
     (incanter.charts/set-y-label "Latitude (degrees)")
     (incanter.charts/set-title "Hour of sunrise by latitude throughout the year"))))
-
-;;(plot-sunrise-times-shaded)
 
 (defn- plot-offset-from-standard-time-shaded []
   (incanter.core/view
@@ -215,6 +161,25 @@
                   (max 0 (- sunrise-floor hr)))))]
       (incanter.charts/heat-map f 0 364 -90.0 90.0 :z-label "Hour")))))
 
-;;(plot-offset-from-standard-time-shaded)
-;;(incanter.core/view (plot-offset-from-standard-time 75))
+(defn -main [& args]
+  "Print graphs comparing daylight hours under Standard, Daylight
+  Saving, and Willet Time"
+  (incanter.core/save
+   (plot-standard-daylight-hours)
+   "assets/standard-daylight-hours.png")
+  (incanter.core/save
+   (plot-dst-daylight-hours)
+   "assets/dst-daylight-hours.png")
+  (incanter.core/save
+   (plot-willet-time-daylight-hours 5.5)
+   "assets/willet-time-daylight-hours.png")
+  (incanter.core/save
+   (plot-sunrise-predictions)
+   "assets/sunrise-predictions.png")
+  (incanter.core/save
+   (plot-sunrise-predictions-error)
+   "assets/sunrise-predictions-error.png")
+  (incanter.core/save
+   (plot-offset-from-standard-time core/seattle-latitude)
+   "assets/offset-from-standard-time.png"))
 

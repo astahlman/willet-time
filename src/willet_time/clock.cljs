@@ -6,10 +6,7 @@
             [goog.date.DateTime :as gdatetime]
             [goog.date.Interval]))
 
-(comment
-  (defonce conn
-    (repl/connect "http://localhost:9000/repl")))
-
+;; For logging in the browser
 (enable-console-print!)
 
 (defrecord Clock [hr min sec])
@@ -17,71 +14,11 @@
 (defn dom-el [id]
   (.getElementById js/document id))
 
-(defn- now-seattle-pst
-  "The current local time in Seattle (without daylight savings). We
-  ignore the browser's local time zone and consider only the hour,
-  minute, and second fields of the returned object."
-  []
-  (let [pst-offset-millis (* 1000 60 60 -8)
-        local-time (gdate/DateTime.)
-        utc-ms (+ (.getTime local-time)
-                  (* 60000 (.getTimezoneOffset local-time)))]
-    (gdatetime/fromTimestamp (+ utc-ms pst-offset-millis))))
-
-(defn- now-doy
-  "Current day of the year in Seattle"
-  []
-  (.getDayOfYear (now-seattle-pst)))
-
-(defn- now-seattle-willet
-  "The current Willet time in Seattle. Again, we ignore the timezone
-  in the browser and care about only the hour, minute, and second
-  fields"
-  []
-  (let [dt (now-seattle-pst)
-        days-since-solstice (core/days-since-winter-solstice
-                             (.getDayOfYear dt))
-        offset-hrs (core/offset-from-standard-time
-                    core/seattle-latitude
-                    days-since-solstice)
-        offset-seconds (* offset-hrs 60 60)]
-    (do
-      (.add dt
-            (gdate/Interval.
-             goog.date.Interval/SECONDS
-             offset-seconds))
-      dt)))
-
-(defn- gdate->Clock [dt]
-  (Clock. (.getHours dt)
-          (.getMinutes dt)
-          (.getSeconds dt)))
-
-(declare get-clock-face-center)
-
-(defn- rotate-element [el deg]
-  (let [x (.getAttribute el "x")
-        y (.getAttribute el "y")
-        {:keys [x y]} (get-clock-face-center)]
-    (.setAttribute el "transform" (str "rotate(" deg " " x " " y ")"))))
-
-(def clocks
-  {
-  ;; {:willet {:now-fn #(gdate->Clock (now-seattle-willet))
-  ;;           :hands-el-prefix "willet_"
-  ;;           :text-el-id "willet_time_text"}
-  ;;  :pst {:now-fn #(gdate->Clock (now-seattle-pst))
-  ;;        :hands-el-prefix "pst_"
-  ;;        :text-el-id "pst_text"}
-   :grandfather {:now-fn #(gdate->Clock (now-seattle-willet))
-                 :hands-el-prefix "grandfather_"
-                 :text-el-id "grandfather_text"}})
-
 (def ^:const img-original-width 2564)
 (def ^:const img-original-height 3012)
 (def svg-canvas-el (dom-el "willet_clock2"))
 
-(defn get-clock-face-center
+(defn- get-clock-face-center
   ([] (get-clock-face-center
        (.getAttribute svg-canvas-el "width")
        (.getAttribute svg-canvas-el "height")))
@@ -91,7 +28,7 @@
      {:x (* (/ face-center-x img-original-width) svg-width)
       :y (* (/ face-center-y img-original-height) svg-height)})))
 
-(defn get-clock-hand-lengths
+(defn- get-clock-hand-lengths
   ([] (get-clock-hand-lengths
        (.getAttribute svg-canvas-el "width")
        (.getAttribute svg-canvas-el "height")))
@@ -105,8 +42,7 @@
       :minute (* scaling-factor original-clock-radius)
       :hour (* .6 scaling-factor original-clock-radius)})))
 
-;; TODO: This only needs to happen once
-(defn position-hands-at-center-of-face!
+(defn- position-hands-at-center-of-face!
   [hr-hand-el min-hand-el sec-hand-el]
   (let [{face-mid-x :x
          face-mid-y :y} (get-clock-face-center)
@@ -134,6 +70,61 @@
       (.setAttribute hr-hand-el "y" (- face-mid-y effective-arm-length))
       (.setAttribute hr-hand-el "height" hour-length))))
 
+(position-hands-at-center-of-face! (dom-el "grandfather_hour_hand")
+                                   (dom-el "grandfather_min_hand")
+                                   (dom-el "grandfather_sec_hand"))
+
+(defn- now-seattle-pst
+  "The current local time in Seattle (without daylight savings). We
+  ignore the browser's local time zone and consider only the hour,
+  minute, and second fields of the returned object."
+  []
+  (let [pst-offset-millis (* 1000 60 60 -8)
+        local-time (gdate/DateTime.)
+        utc-ms (+ (.getTime local-time)
+                  (* 60000 (.getTimezoneOffset local-time)))]
+    (gdatetime/fromTimestamp (+ utc-ms pst-offset-millis))))
+
+(defn- now-seattle-willet []
+  "The current Willet time in Seattle. Again, we ignore the timezone
+  in the browser and care about only the hour, minute, and second
+  fields"
+  (let [dt (now-seattle-pst)
+        offset-hrs (core/offset-from-standard-time
+                    core/seattle-latitude
+                    (.getDayOfYear dt))
+        offset-seconds (* offset-hrs 60 60)]
+    (do
+      (.add dt
+            (gdate/Interval.
+             goog.date.Interval/SECONDS
+             offset-seconds))
+      dt)))
+
+(defn- gdate->Clock [dt]
+  (Clock. (.getHours dt)
+          (.getMinutes dt)
+          (.getSeconds dt)))
+
+(defn- rotate-element [el deg]
+  (let [x (.getAttribute el "x")
+        y (.getAttribute el "y")
+        {:keys [x y]} (get-clock-face-center)]
+    (.setAttribute el "transform" (str "rotate(" deg " " x " " y ")"))))
+
+(def clocks
+  {
+  ;; {:willet {:now-fn #(gdate->Clock (now-seattle-willet))
+  ;;           :hands-el-prefix "willet_"
+  ;;           :text-el-id "willet_time_text"}
+  ;;  :pst {:now-fn #(gdate->Clock (now-seattle-pst))
+  ;;        :hands-el-prefix "pst_"
+  ;;        :text-el-id "pst_text"}
+   :grandfather {:now-fn #(gdate->Clock (now-seattle-willet))
+                 :hands-el-prefix "grandfather_"
+                 :text-el-id "grandfather_text"}})
+
+
 (defn- draw-clock!
   [{:keys [now-fn hands-el-prefix]}]
   (let [{:keys [hr min sec]} (now-fn)
@@ -141,7 +132,6 @@
         min-hand-el (dom-el (str hands-el-prefix "min_hand"))
         hour-hand-el (dom-el (str hands-el-prefix "hour_hand"))]
     (do
-      (position-hands-at-center-of-face! hour-hand-el min-hand-el sec-hand-el)
       (rotate-element sec-hand-el (* 6 sec))
       (rotate-element min-hand-el (* 6 min))
       (rotate-element hour-hand-el (+ (* 30 (mod hr 12))
@@ -155,8 +145,6 @@
     (aset el "innerHTML" (str (fmt-num hr) ":"
                               (fmt-num min) ":"
                               (fmt-num sec)))))
-
-;; Set the canvas background
 
 ;; pendulum displacement (in degrees) is described by a sin wave
 ;; with period = 1 second and amplitude 30 (totally arbitrary)

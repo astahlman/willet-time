@@ -14,9 +14,6 @@
 (def ^:const noon 12.0)
 (def ^:const PI 3.14159265)
 
-;; For logging in the browser
-(enable-console-print!)
-
 ;; The sun rises no earlier than 05:30 under Willet Time
 ;; (This choice is totally arbitary.)
 (def ^:const sunrise-floor 5.5)
@@ -130,19 +127,19 @@
         ecliptic-component (radian->hr (psi days-since-winter-solstice))]
     (+ eccentricity-component ecliptic-component)))
 
-(declare daylight-hours)
+(declare daylight-hours days-since-winter-solstice)
 
 (defn ^:export sunrise
   "Return the hour of sunrise at the given latitude (in degrees) on
-  day [0 - 365.25), where 0 corresponds to the winter solstice"
-  [latitude days-since-winter-solstice]
-  (first (daylight-hours latitude days-since-winter-solstice)))
+  day [0 - 365.25), where 0 corresponds to Jan. 1"
+  [latitude doy]
+  (first (daylight-hours latitude (days-since-winter-solstice doy))))
 
-(defn sunset
+(defn ^:export sunset
   "Return the hour of sunset at the given latitude (in degrees) on
-  day [0 - 365.25), where 0 corresponds to the winter solstice"
-  [latitude days-since-winter-solstice]
-  (second (daylight-hours latitude days-since-winter-solstice)))
+  day [0 - 365.25), where 0 corresponds Jan. 1"
+  [latitude doy]
+  (second (daylight-hours latitude (days-since-winter-solstice doy))))
 
 (defn- daylight-hours
   "Return the hour of sunrise at the given latitude (in degrees) on
@@ -153,8 +150,7 @@
     [(- solar-noon (/ length-of-day 2))
      (+ solar-noon (/ length-of-day 2))]))
 
-;; TODO: Make this private and accept calendar day of year for sunrise and sunset functions
-(defn days-since-winter-solstice
+(defn- days-since-winter-solstice
   "The number of days since December 21st (the date of the December
   solstice in 2016) for the given day of the calendar year, where 0
   corresponds to January 1st and 364 corresponds to December
@@ -174,13 +170,13 @@
   "Error between predicted and actual sunrise in minutes, given a day
   of year, latitude, and actual sunrise times"
   [lat actuals]
-  (let [predictions (map #(sunrise lat (days-since-winter-solstice %))
+  (let [predictions (map #(sunrise lat %)
                          (range 0 365))
         residuals (map - actuals predictions)]
     (map #(* % 60) residuals)))
 
 (defn offset-from-standard-time
   "Return the offset in hours from standard time"
-  [latitude days-since-winter-solstice]
-  (let [sunrise-hr (sunrise latitude days-since-winter-solstice)]
+  [latitude doy]
+  (let [sunrise-hr (sunrise latitude doy)]
     (max 0 (- sunrise-floor sunrise-hr))))

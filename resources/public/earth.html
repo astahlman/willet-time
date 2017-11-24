@@ -188,14 +188,24 @@
     updatePlot(initDayOfYear);
 
     var slider = document.getElementById("day-of-year");
-    slider.value = initDayOfYear;
-
-    // TODO: This is actually days after December solstice. Make it day of year
     var dayOfYearText = document.getElementById("day-of-year-text");
     slider.oninput = function() {
-        var dayOfYear = this.value;
-        updatePlot(dayOfYear)
-        dayOfYearText.innerHTML = dayOfYear;
+        updatePlot(parseInt(this.value));
+        dayOfYearText.innerHTML = dayOfYearToString(parseInt(this.value));
     } 
-  
+    function dayOfYearToString(n) {
+        if (n < 0 || n > 364) {
+            return "--";
+        } else {
+            return new Date(2017, 0, n + 1, 0, 0, 0, 0)
+                .toString() // 'Sun Feb 05 2017 00:00:00 GMT-0800 (PST)'
+                .split(' ') // [ 'Sun', 'Feb', '05', '2017', '00:00:00', 'GMT-0800', '(PST)' ]
+                .slice(1, 3) // [ 'Feb', '05' ]
+                .join(' ');
+        }
+    }
+
+    slider.value = initDayOfYear;
+    dayOfYearText.innerHTML = dayOfYearToString(initDayOfYear);
+ 
 </script>
