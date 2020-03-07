@@ -1,6 +1,9 @@
-# Willet Time
+# Willett Time
 
-These calculations are the accompaniment to my [blog post](TODO: link) on Continuous Seasonal Time, a.k.a, Willet Time. It also contains the Clojurescript that powers the clock at the top of the post.
+These calculations are the accompaniment to my [blog post](TODO: link)
+on Daylight Saving Time.
 
-The content of the .pdf is written in org-mode, exported to LaTeX, and
-converted to .pdf using pdf2latex.
+[This pdf](https://github.com/astahlman/willet-time/blob/master/core.pdf)
+shows the full derivations related to the clocks and charts,
+implemented in ClojureScript. The content of the .pdf are exported
+from .org as LaTeX and converted to .pdf using pdf2latex.
