@@ -1,5 +1,6 @@
 (ns willet-time.plot
   (import java.awt.Color)
+  (import org.jfree.chart.title.LegendTitle)
   (:require [incanter core charts]
             [clojure.string :as str]
             [willet-time.core :as core]
@@ -20,6 +21,7 @@
 
 (def actual-seattle-daylight-hours (data/load-dataset))
 (def actual-seattle-sunrises (map first actual-seattle-daylight-hours))
+(def ideal-sunrise-hr 6.5) ;; "Ideal" sunrise is at 6:30am
 
 (defn- plot-sunrise-predictions []
   (-> (incanter.charts/function-plot #(nth actual-seattle-sunrises %)
@@ -60,12 +62,22 @@
   (-> (incanter.charts/xy-plot)
       (incanter.charts/set-x-range 0 364)
       (incanter.charts/set-y-range 3.5 22.5)
-      (set-background-color java.awt.Color/BLUE)
-      (incanter.charts/set-background-alpha 0.65)
+      (set-background-color (.darker (.darker java.awt.Color/BLUE)))
+      (incanter.charts/set-background-alpha 0.9)
       (incanter.charts/set-alpha 0.8)
+      ;; Shade all daylight hours
       (incanter.charts/add-polygon
        (concat sunrise-hr (reverse sunset-hr))
        :fill-paint java.awt.Color/YELLOW)
+      ;; Shade "wasted" daylight
+      (incanter.charts/add-polygon
+       (concat sunrise-hr
+               (reverse (map #(vector
+                               (first %)
+                               (max (second %) ideal-sunrise-hr))
+                             sunrise-hr)))
+       :outline-paint nil
+       :fill-paint (.darker (.darker java.awt.Color/YELLOW)))
       (incanter.charts/set-title (or title "Daylight Hours"))
       (incanter.charts/set-x-label "Day of year")
       (incanter.charts/set-y-label "Hour of Day")))
@@ -78,7 +90,7 @@
                     [x (core/sunset core/seattle-latitude x)])]
     (plot-daylight-hours sunrise-hr
                          sunset-hr
-                         "Daylight Hours (Standard)")))
+                         "Daylight Hours (without DST)")))
 
 (defn plot-willet-time-daylight-hours [sunrise-floor]
   "Plot the daylight hours under Willet Time where the earliest
@@ -114,7 +126,7 @@
                           (core/sunset core/seattle-latitude x))])]
     (plot-daylight-hours sunrise-hr
                          sunset-hr
-                         "Daylight Hours (Daylight Saving Time)")))
+                         "Daylight Hours (with DST)")))
 
 (defn- plot-sun-angle-of-highest-elevation []
   "The Sun's angle of highest elevation throughout the year"
